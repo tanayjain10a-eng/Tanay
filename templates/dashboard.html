@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block content %}
+<h4 class="fw-bold mb-4">Dashboard</h4>
+
+<div class="row g-3 mb-4">
+  <div class="col-sm-4">
+    <div class="card stat-card pending p-3">
+      <div class="text-muted small">Startups</div>
+      <div class="fs-2 fw-bold">{{ total_startups }}</div>
+    </div>
+  </div>
+  <div class="col-sm-4">
+    <div class="card stat-card approved p-3">
+      <div class="text-muted small">Contacts</div>
+      <div class="fs-2 fw-bold">{{ total_contacts }}</div>
+    </div>
+  </div>
+  <div class="col-sm-4">
+    <div class="card stat-card sent p-3">
+      <div class="text-muted small">Sent</div>
+      <div class="fs-2 fw-bold">{{ sent }}</div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-sm-3">
+    <div class="card p-3 text-center">
+      <div class="fs-4 fw-bold text-warning">{{ pending }}</div>
+      <div class="text-muted small">Pending Review</div>
+      <a href="/review?status=pending" class="btn btn-sm btn-outline-warning mt-2">Review</a>
+    </div>
+  </div>
+  <div class="col-sm-3">
+    <div class="card p-3 text-center">
+      <div class="fs-4 fw-bold text-primary">{{ approved }}</div>
+      <div class="text-muted small">Approved</div>
+      <a href="/review?status=approved" class="btn btn-sm btn-outline-primary mt-2">View</a>
+    </div>
+  </div>
+  <div class="col-sm-3">
+    <div class="card p-3 text-center">
+      <div class="fs-4 fw-bold text-danger">{{ failed }}</div>
+      <div class="text-muted small">Failed</div>
+    </div>
+  </div>
+  <div class="col-sm-3">
+    <div class="card p-3 text-center">
+      <div class="fs-4 fw-bold text-secondary">{{ rejected }}</div>
+      <div class="text-muted small">Rejected</div>
+    </div>
+  </div>
+</div>
+
+<div class="card p-4">
+  <h6 class="fw-semibold mb-2">How it works</h6>
+  <ol class="mb-0 text-muted small">
+    <li>Click <strong>Scrape &amp; Draft</strong> — fetches AI/Tech seed-stage startups from Apollo &amp; Tracxn, finds 5–7 contacts per startup, generates personalised emails via Claude.</li>
+    <li>Go to <strong>Review Emails</strong> — read, edit, approve or reject each draft.</li>
+    <li>Approved emails are sent automatically at <strong>9:00 AM IST on weekdays</strong> (up to 35/day).</li>
+    <li>You can also send any email immediately from the detail view.</li>
+  </ol>
+</div>
+{% endblock %}

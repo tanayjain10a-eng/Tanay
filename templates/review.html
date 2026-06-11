@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-3">
+  <h4 class="fw-bold mb-0">Review Emails</h4>
+  <div class="d-flex gap-2">
+    {% if status_filter == 'pending' %}
+    <form method="POST" action="/approve-all" onsubmit="return confirm('Approve ALL pending emails?')">
+      <button class="btn btn-success btn-sm">Approve All</button>
+    </form>
+    <form method="POST" action="/reject-all" onsubmit="return confirm('Reject ALL pending emails?')">
+      <button class="btn btn-outline-secondary btn-sm">Reject All</button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+
+<div class="mb-3 d-flex gap-2">
+  {% for s in ['pending','approved','sent','rejected','failed'] %}
+  <a href="/review?status={{ s }}" class="btn btn-sm {% if status_filter==s %}btn-dark{% else %}btn-outline-secondary{% endif %}">{{ s|capitalize }}</a>
+  {% endfor %}
+</div>
+
+{% if emails.items %}
+<div class="table-responsive">
+  <table class="table table-hover bg-white">
+    <thead class="table-light">
+      <tr>
+        <th>Startup</th>
+        <th>Contact</th>
+        <th>Title</th>
+        <th>Subject</th>
+        <th>Status</th>
+        <th>Scheduled</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for email in emails.items %}
+      {% set contact = email.contact %}
+      {% set startup = contact.startup %}
+      <tr>
+        <td><a href="/startup/{{ startup.id }}">{{ startup.name }}</a></td>
+        <td>{{ contact.full_name }}</td>
+        <td class="text-muted small">{{ contact.title }}</td>
+        <td>{{ email.final_subject[:60] }}{% if email.final_subject|length > 60 %}…{% endif %}</td>
+        <td><span class="badge badge-{{ email.status }}">{{ email.status }}</span></td>
+        <td class="small text-muted">{{ email.scheduled_date }}</td>
+        <td>
+          <a href="/email/{{ email.id }}" class="btn btn-xs btn-outline-primary btn-sm">View</a>
+          {% if email.status in ('pending', 'approved') %}
+          <form method="POST" action="/email/{{ email.id }}/approve" class="d-inline">
+            <button class="btn btn-xs btn-sm btn-success">✓</button>
+          </form>
+          <form method="POST" action="/email/{{ email.id }}/reject" class="d-inline">
+            <button class="btn btn-xs btn-sm btn-outline-secondary">✗</button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<nav>
+  <ul class="pagination pagination-sm">
+    {% if emails.has_prev %}
+    <li class="page-item"><a class="page-link" href="?status={{ status_filter }}&page={{ emails.prev_num }}">Prev</a></li>
+    {% endif %}
+    <li class="page-item disabled"><span class="page-link">{{ emails.page }} / {{ emails.pages }}</span></li>
+    {% if emails.has_next %}
+    <li class="page-item"><a class="page-link" href="?status={{ status_filter }}&page={{ emails.next_num }}">Next</a></li>
+    {% endif %}
+  </ul>
+</nav>
+{% else %}
+<div class="text-muted">No {{ status_filter }} emails.</div>
+{% endif %}
+{% endblock %}

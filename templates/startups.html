@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block content %}
+<h4 class="fw-bold mb-4">Startups ({{ startups|length }})</h4>
+<div class="table-responsive">
+  <table class="table table-hover bg-white">
+    <thead class="table-light">
+      <tr>
+        <th>Name</th><th>Sector</th><th>Funding</th><th>Round Date</th><th>Location</th><th>Contacts</th><th></th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for s in startups %}
+    <tr>
+      <td><a href="/startup/{{ s.id }}">{{ s.name }}</a></td>
+      <td class="small text-muted">{{ s.sector[:40] }}</td>
+      <td>${{ "{:,.0f}".format(s.funding_amount_usd or 0) }}</td>
+      <td class="small text-muted">{{ s.funding_date }}</td>
+      <td class="small text-muted">{{ s.location }}</td>
+      <td>{{ s.contacts|length }}</td>
+      <td><a href="/startup/{{ s.id }}" class="btn btn-sm btn-outline-primary">View</a></td>
+    </tr>
+    {% else %}
+    <tr><td colspan="7" class="text-muted">No startups yet. Use Scrape &amp; Draft to populate.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

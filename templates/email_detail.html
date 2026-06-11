@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="d-flex align-items-center gap-3 mb-3">
+  <a href="/review" class="btn btn-outline-secondary btn-sm">&larr; Back</a>
+  <h5 class="fw-bold mb-0">Email #{{ email.id }} — {{ startup.name }}</h5>
+  <span class="badge badge-{{ email.status }}">{{ email.status }}</span>
+</div>
+
+<div class="row g-4">
+  <div class="col-md-4">
+    <div class="card p-3 mb-3">
+      <h6 class="fw-semibold">Startup</h6>
+      <p class="mb-1">{{ startup.name }}</p>
+      <p class="text-muted small mb-1">{{ startup.sector }}</p>
+      <p class="text-muted small mb-1">Raised: ${{ "{:,.0f}".format(startup.funding_amount_usd or 0) }} ({{ startup.funding_round }})</p>
+      <p class="text-muted small mb-0">{{ startup.description[:200] }}</p>
+      {% if startup.website %}<a href="{{ startup.website }}" target="_blank" class="small">Website ↗</a>{% endif %}
+    </div>
+    <div class="card p-3">
+      <h6 class="fw-semibold">Contact</h6>
+      <p class="mb-1">{{ contact.full_name }}</p>
+      <p class="text-muted small mb-1">{{ contact.title }}</p>
+      <p class="text-muted small mb-0">{{ contact.email }}</p>
+      {% if contact.linkedin_url %}<a href="{{ contact.linkedin_url }}" target="_blank" class="small">LinkedIn ↗</a>{% endif %}
+    </div>
+  </div>
+
+  <div class="col-md-8">
+    <form method="POST" action="/email/{{ email.id }}/approve">
+      <div class="card p-4">
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Subject</label>
+          <input type="text" name="subject" class="form-control" value="{{ email.final_subject }}">
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Body</label>
+          <textarea name="body" class="form-control font-monospace" rows="14">{{ email.final_body }}</textarea>
+        </div>
+        <div class="d-flex gap-2">
+          <button type="submit" class="btn btn-success">Approve &amp; Save</button>
+          {% if email.status in ('pending','approved') %}
+          <button type="button" class="btn btn-primary"
+            onclick="if(confirm('Send immediately?')){this.form.action='/email/{{ email.id }}/send-now';this.form.submit();}">
+            Send Now
+          </button>
+          {% endif %}
+          <a href="/review" class="btn btn-outline-secondary ms-auto">Cancel</a>
+        </div>
+      </div>
+    </form>
+
+    {% if email.status == 'sent' %}
+    <div class="alert alert-success mt-3">
+      Sent at {{ email.sent_at }} — Gmail ID: {{ email.gmail_message_id }}
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
