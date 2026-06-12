@@ -54,7 +54,8 @@ def scrape():
     from email_generator import bulk_generate
 
     max_startups = int(request.form.get("max_startups", 10))
-    excel_path = os.path.join(os.path.dirname(__file__), "uploads", "founders.xlsx")
+    import os
+    excel_path = "/content/Tanay/uploads/founders.xlsx"
     results = fetch_startups_with_contacts(excel_path=excel_path, max_startups=max_startups)
 
     added_startups = 0
@@ -275,6 +276,22 @@ def _next_weekday(from_date: date | None = None) -> date:
         d += timedelta(days=7 - d.weekday())
     return d
 
+
+
+@app.route("/upload", methods=["POST"])
+def upload_excel():
+    if "file" not in request.files:
+        flash("No file uploaded.", "danger")
+        return redirect("/")
+    file = request.files["file"]
+    if file and (file.filename.endswith(".xlsx") or file.filename.endswith(".csv")):
+        import os
+        os.makedirs("/content/Tanay/uploads", exist_ok=True)
+        file.save("/content/Tanay/uploads/founders.xlsx")
+        flash("File uploaded! Now click Scrape & Draft.", "success")
+    else:
+        flash("Please upload .xlsx or .csv file.", "danger")
+    return redirect("/")
 
 if __name__ == "__main__":
     app.run(debug=True, port=5050, use_reloader=False)

@@ -62,3 +62,24 @@ def bulk_generate(contacts_payload):
             "body": body
         })
     return results
+
+def generate_linkedin_message(contact, company):
+    """Generate a 300 char LinkedIn connection message."""
+    prompt = f"""Write a LinkedIn connection request message from Tanay Jain to {contact.get("first_name", "")} at {company.get("name", "")}.
+
+Background: {company.get("description", "")}
+
+Rules:
+- Maximum 300 characters total
+- Mention Tanay is joining BCG in September
+- Ask for 2-month remote internship
+- Reference something specific about their background
+- Sound genuine, not templated
+
+Write only the message, nothing else:"""
+
+    response = client.chat.completions.create(
+        model="llama-3.3-70b-versatile",
+        messages=[{"role": "user", "content": prompt}]
+    )
+    return response.choices[0].message.content.strip()[:300]

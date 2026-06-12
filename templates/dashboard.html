@@ -52,7 +52,6 @@
   </div>
 </div>
 
-<!-- Upload Excel -->
 <div class="card p-4 mb-3">
   <h6 class="fw-semibold mb-3">Step 1 — Upload Founders Excel</h6>
   <form method="POST" action="/upload" enctype="multipart/form-data">
@@ -60,11 +59,10 @@
       <input type="file" name="file" accept=".xlsx,.csv" class="form-control" required>
       <button type="submit" class="btn btn-outline-primary">Upload</button>
     </div>
-    <div class="text-muted small mt-1">Upload your Tracxn founders Excel. Columns needed: Name, Current Company, Role, Background Summary.</div>
+    <div class="text-muted small mt-1">Upload Tracxn founders Excel. Needs columns: Name, Current Company, Role, Background Summary.</div>
   </form>
 </div>
 
-<!-- Scrape & Draft -->
 <div class="card p-4 mb-3">
   <h6 class="fw-semibold mb-3">Step 2 — Find Contacts & Generate Emails</h6>
   <form method="POST" action="/scrape">
@@ -73,19 +71,17 @@
       <input type="number" name="max_startups" value="5" min="1" max="50" class="form-control" style="width:80px">
       <button type="submit" class="btn btn-primary">Scrape & Draft</button>
     </div>
-    <div class="text-muted small mt-1">App will find emails by scraping websites, find LinkedIn profiles, and generate personalised emails.</div>
+    <div class="text-muted small mt-1">Finds emails by scraping websites, finds LinkedIn profiles, generates personalised emails.</div>
   </form>
 </div>
 
-<!-- How it works -->
 <div class="card p-4">
   <h6 class="fw-semibold mb-2">How it works</h6>
   <ol class="mb-0 text-muted small">
     <li>Upload your Tracxn founders Excel above.</li>
-    <li>Click <strong>Scrape & Draft</strong> — finds emails by scraping company websites, finds LinkedIn profiles, generates personalised emails referencing founder background.</li>
+    <li>Click <strong>Scrape & Draft</strong> — finds emails, finds LinkedIn profiles, generates personalised emails referencing founder background.</li>
     <li>Go to <strong>Review Emails</strong> — read, edit, approve or reject each draft.</li>
-    <li>Approved emails are sent automatically at <strong>9:00 AM IST on weekdays</strong>.</li>
-    <li>Founders without email get a LinkedIn outreach message instead.</li>
+    <li>Approved emails sent automatically at <strong>9:00 AM IST weekdays</strong>.</li>
   </ol>
 </div>
 {% endblock %}

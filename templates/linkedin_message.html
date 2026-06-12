@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="d-flex align-items-center gap-3 mb-3">
+  <a href="/review" class="btn btn-outline-secondary btn-sm">&larr; Back</a>
+  <h5 class="fw-bold mb-0">LinkedIn Message — {{ startup.name }}</h5>
+</div>
+
+<div class="row g-4">
+  <div class="col-md-4">
+    <div class="card p-3 mb-3">
+      <h6 class="fw-semibold">Contact</h6>
+      <p class="mb-1">{{ contact.first_name }} {{ contact.last_name }}</p>
+      <p class="text-muted small mb-1">{{ contact.title }}</p>
+      {% if linkedin_url %}
+      <a href="{{ linkedin_url }}" target="_blank" class="btn btn-sm btn-outline-primary mt-2">
+        Open LinkedIn Profile ↗
+      </a>
+      {% else %}
+      <p class="text-muted small">No LinkedIn URL found</p>
+      {% endif %}
+    </div>
+  </div>
+  
+  <div class="col-md-8">
+    <div class="card p-4">
+      <h6 class="fw-semibold mb-3">LinkedIn Connection Message</h6>
+      <div class="alert alert-info small">
+        Copy this message and paste it when sending a connection request on LinkedIn. Max 300 characters.
+      </div>
+      <textarea id="linkedin-msg" class="form-control font-monospace mb-2" rows="5">{{ linkedin_msg }}</textarea>
+      <div class="d-flex gap-2 align-items-center">
+        <span class="text-muted small" id="char-count">{{ linkedin_msg|length }}/300 characters</span>
+        <button class="btn btn-primary" onclick="copyMessage()">Copy Message</button>
+        {% if linkedin_url %}
+        <a href="{{ linkedin_url }}" target="_blank" class="btn btn-success">Open LinkedIn</a>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.getElementById("linkedin-msg").addEventListener("input", function() {
+  document.getElementById("char-count").textContent = this.value.length + "/300 characters";
+});
+
+function copyMessage() {
+  const msg = document.getElementById("linkedin-msg").value;
+  navigator.clipboard.writeText(msg);
+  alert("Message copied to clipboard!");
+}
+</script>
+{% endblock %}
