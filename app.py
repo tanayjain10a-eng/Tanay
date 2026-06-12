@@ -55,7 +55,7 @@ def scrape():
 
     max_startups = int(request.form.get("max_startups", 10))
     import os
-    excel_path = os.path.join(os.path.dirname(__file__), "uploads", "founders.xlsx")
+    excel_path = os.path.join("/tmp", "founders.xlsx")
     results = fetch_startups_with_contacts(excel_path=excel_path, max_startups=max_startups)
 
     added_startups = 0
@@ -286,8 +286,8 @@ def upload_excel():
     file = request.files["file"]
     if file and (file.filename.endswith(".xlsx") or file.filename.endswith(".csv")):
         import os
-        os.makedirs(os.path.join(os.path.dirname(__file__), "uploads"), exist_ok=True)
-        file.save(os.path.join(os.path.dirname(__file__), "uploads", "founders.xlsx"))
+        os.makedirs("/tmp", exist_ok=True)
+        file.save(os.path.join("/tmp", "founders.xlsx"))
         flash("File uploaded! Now click Scrape & Draft.", "success")
     else:
         flash("Please upload .xlsx or .csv file.", "danger")
