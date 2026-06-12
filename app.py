@@ -293,5 +293,20 @@ def upload_excel():
         flash("Please upload .xlsx or .csv file.", "danger")
     return redirect("/")
 
+
+@app.route("/email/<int:email_id>/linkedin", methods=["GET"])
+def view_linkedin_message(email_id):
+    from email_generator import generate_linkedin_message
+    email_obj = Email.query.get_or_404(email_id)
+    contact = Contact.query.get(email_obj.contact_id)
+    startup = Startup.query.get(contact.startup_id)
+    contact_dict = {"first_name": contact.first_name, "last_name": contact.last_name, "title": contact.title}
+    company_dict = {"name": startup.name, "description": startup.description}
+    linkedin_msg = generate_linkedin_message(contact_dict, company_dict)
+    linkedin_url = contact.linkedin_url or ""
+    return render_template("linkedin_message.html",
+                          email=email_obj, contact=contact, startup=startup,
+                          linkedin_msg=linkedin_msg, linkedin_url=linkedin_url)
+
 if __name__ == "__main__":
     app.run(debug=True, port=5050, use_reloader=False)
