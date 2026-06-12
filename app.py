@@ -54,7 +54,8 @@ def scrape():
     from email_generator import bulk_generate
 
     max_startups = int(request.form.get("max_startups", 10))
-    results = fetch_startups_with_contacts(max_startups=max_startups)
+    excel_path = os.path.join(os.path.dirname(__file__), "uploads", "founders.xlsx")
+    results = fetch_startups_with_contacts(excel_path=excel_path, max_startups=max_startups)
 
     added_startups = 0
     added_contacts = 0

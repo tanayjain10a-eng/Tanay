@@ -1,233 +1,173 @@
-"""
-Data collection from Apollo.io and Tracxn APIs.
-Apollo is the primary source — it aggregates LinkedIn data legally.
-Tracxn is used to cross-reference seed-round startups.
-"""
+
 import requests
+import re
+import os
 import logging
-from datetime import datetime, timedelta
-from config import (
-    APOLLO_API_KEY, TRACXN_API_KEY,
-    MIN_FUNDING_USD, MAX_FUNDING_AGE_DAYS,
-    TARGET_SECTORS, TARGET_ROUND, EMPLOYEES_PER_STARTUP
-)
+import time
+import random
+from bs4 import BeautifulSoup
 
 logger = logging.getLogger(__name__)
 
-APOLLO_BASE = "https://api.apollo.io/v1"
-TRACXN_BASE = "https://tracxn.com/api/2.1"
+HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+}
 
-
-# ---------------------------------------------------------------------------
-# Apollo helpers
-# ---------------------------------------------------------------------------
-
-def apollo_headers():
-    return {"Content-Type": "application/json", "Cache-Control": "no-cache", "X-Api-Key": APOLLO_API_KEY}
-
-
-def search_startups_apollo(page: int = 1, per_page: int = 25) -> list[dict]:
-    """Search Apollo for AI/Tech companies that raised a seed round recently."""
-    cutoff = (datetime.utcnow() - timedelta(days=MAX_FUNDING_AGE_DAYS)).strftime("%Y-%m-%d")
-    payload = {
-        "page": page,
-        "per_page": per_page,
-        "organization_num_employees_ranges": ["1,200"],
-        "organization_latest_funding_stage_cd": ["seed"],
-        "organization_keywords": TARGET_SECTORS[:4],
-        "currently_using_any_of_technology_uids": [],
-        "q_organization_keyword_tags": ["artificial intelligence", "machine learning", "saas"],
-        "sort_by_field": "funding_total",
-        "sort_ascending": False,
-    }
+def google_search(query, num=5):
     try:
-        resp = requests.post(f"{APOLLO_BASE}/mixed_companies/search", json=payload, headers=apollo_headers(), timeout=15)
-        resp.raise_for_status()
-        data = resp.json()
-        orgs = data.get("organizations", [])
-        # Filter by funding amount and recency
-        filtered = []
-        for org in orgs:
-            funding = org.get("latest_funding_round_amount") or 0
-            funding_date_str = org.get("latest_funding_round_date") or ""
-            if funding >= MIN_FUNDING_USD and funding_date_str >= cutoff:
-                filtered.append(org)
-        return filtered
-    except Exception as e:
-        logger.error(f"Apollo company search failed: {e}")
-        return []
-
-
-def enrich_company_apollo(domain: str) -> dict:
-    """Get detailed company info from Apollo by domain."""
-    try:
-        resp = requests.get(
-            f"{APOLLO_BASE}/organizations/enrich",
-            params={"domain": domain},
-            headers=apollo_headers(),
-            timeout=15
-        )
-        resp.raise_for_status()
-        return resp.json().get("organization", {})
-    except Exception as e:
-        logger.error(f"Apollo company enrich failed for {domain}: {e}")
-        return {}
-
-
-def search_contacts_apollo(org_id: str, company_name: str, limit: int = EMPLOYEES_PER_STARTUP) -> list[dict]:
-    """Find key contacts at a startup — founders, C-suite, VPs, engineering leads."""
-    titles = [
-        "founder", "co-founder", "ceo", "cto", "coo", "vp engineering",
-        "head of product", "chief of staff", "director", "head of growth",
-        "engineering manager", "vp product"
-    ]
-    payload = {
-        "page": 1,
-        "per_page": limit * 2,
-        "organization_ids": [org_id],
-        "person_titles": titles,
-        "contact_email_status": ["verified", "likely to engage"],
-    }
-    try:
-        resp = requests.post(f"{APOLLO_BASE}/mixed_people/search", json=payload, headers=apollo_headers(), timeout=15)
-        resp.raise_for_status()
-        people = resp.json().get("people", [])
-        # Prefer people with verified emails
-        people_with_email = [p for p in people if p.get("email")]
-        return people_with_email[:limit]
-    except Exception as e:
-        logger.error(f"Apollo contact search failed for {company_name}: {e}")
-        return []
-
-
-def reveal_email_apollo(person_id: str) -> str | None:
-    """Reveal (unlock) a contact's email using Apollo's reveal endpoint."""
-    try:
-        resp = requests.post(
-            f"{APOLLO_BASE}/people/match",
-            json={"id": person_id, "reveal_personal_emails": False},
-            headers=apollo_headers(),
-            timeout=15
-        )
-        resp.raise_for_status()
-        person = resp.json().get("person", {})
-        return person.get("email")
-    except Exception as e:
-        logger.error(f"Apollo email reveal failed for {person_id}: {e}")
-        return None
-
-
-# ---------------------------------------------------------------------------
-# Tracxn helpers
-# ---------------------------------------------------------------------------
-
-def search_startups_tracxn(page: int = 1) -> list[dict]:
-    """Search Tracxn for recent AI seed-stage startups."""
-    if not TRACXN_API_KEY:
-        return []
-    try:
-        cutoff_year = datetime.utcnow().year - 1
-        resp = requests.post(
-            f"{TRACXN_BASE}/companies/search",
-            json={
-                "accessToken": TRACXN_API_KEY,
-                "filters": {
-                    "fundingRounds": [{"roundType": "Seed", "minAmount": MIN_FUNDING_USD}],
-                    "sectors": ["Artificial Intelligence", "Machine Learning", "SaaS", "Fintech"],
-                    "fundingDateFrom": f"{cutoff_year}-01-01",
-                },
-                "pageNumber": page,
-                "pageSize": 20,
-                "sortBy": "latestFundingDate",
-                "sortOrder": "desc",
-            },
-            timeout=15
-        )
-        resp.raise_for_status()
-        return resp.json().get("data", {}).get("companies", [])
-    except Exception as e:
-        logger.error(f"Tracxn search failed: {e}")
-        return []
-
-
-# ---------------------------------------------------------------------------
-# Orchestrator
-# ---------------------------------------------------------------------------
-
-def fetch_startups_with_contacts(max_startups: int = 10) -> list[dict]:
-    """
-    Pull startups + contacts from Apollo (primary) and Tracxn (supplement).
-    Returns a list of dicts ready to be persisted.
-    """
-    results = []
-    seen_names = set()
-
-    # Apollo — multiple pages
-    for page in range(1, 5):
-        if len(results) >= max_startups:
-            break
-        orgs = search_startups_apollo(page=page)
-        for org in orgs:
-            if len(results) >= max_startups:
-                break
-            name = org.get("name", "").strip()
-            if not name or name.lower() in seen_names:
-                continue
-            seen_names.add(name.lower())
-
-            org_id = org.get("id", "")
-            contacts_raw = search_contacts_apollo(org_id, name) if org_id else []
-            contacts = []
-            for p in contacts_raw:
-                email = p.get("email") or reveal_email_apollo(p.get("id", ""))
-                if not email:
-                    continue
-                contacts.append({
-                    "first_name": p.get("first_name", ""),
-                    "last_name": p.get("last_name", ""),
-                    "email": email,
-                    "title": p.get("title", ""),
-                    "linkedin_url": p.get("linkedin_url", ""),
-                    "source": "apollo",
+        url = f"https://www.google.com/search?q={requests.utils.quote(query)}&num={num}"
+        resp = requests.get(url, headers=HEADERS, timeout=10)
+        soup = BeautifulSoup(resp.text, "html.parser")
+        results = []
+        for g in soup.select("div.g"):
+            link = g.select_one("a")
+            snippet = g.select_one(".VwiC3b")
+            if link:
+                results.append({
+                    "url": link.get("href", ""),
+                    "snippet": snippet.get_text() if snippet else ""
                 })
+        return results
+    except Exception as e:
+        logger.error(f"Google search failed: {e}")
+        return []
 
-            results.append({
-                "name": name,
-                "website": org.get("website_url", ""),
-                "linkedin_url": org.get("linkedin_url", ""),
-                "sector": ", ".join(org.get("keywords", [])[:3]),
-                "funding_amount_usd": org.get("latest_funding_round_amount", 0),
-                "funding_round": org.get("latest_funding_stage", "seed"),
-                "funding_date": org.get("latest_funding_round_date", ""),
-                "description": org.get("short_description", ""),
-                "location": (org.get("primary_domain") or ""),
-                "source": "apollo",
-                "contacts": contacts,
-            })
+def find_company_website(company_name):
+    results = google_search(f"{company_name} startup official website", num=5)
+    blocked = ["linkedin", "twitter", "facebook", "crunchbase", "tracxn",
+               "wikipedia", "youtube", "instagram", "google", "bloomberg"]
+    for r in results:
+        url = r["url"]
+        if url.startswith("http") and not any(b in url for b in blocked):
+            domain_match = re.search(r"https?://(?:www\.)?([a-z0-9\-]+\.[a-z]{2,})", url)
+            if domain_match:
+                return domain_match.group(1), url
+    return "", ""
 
-    # Tracxn supplement
-    if len(results) < max_startups:
-        tracxn_orgs = search_startups_tracxn()
-        for org in tracxn_orgs:
-            if len(results) >= max_startups:
-                break
-            name = org.get("name", "").strip()
-            if not name or name.lower() in seen_names:
-                continue
-            seen_names.add(name.lower())
-            results.append({
-                "name": name,
-                "website": org.get("website", ""),
-                "linkedin_url": org.get("linkedinUrl", ""),
-                "sector": org.get("sector", ""),
-                "funding_amount_usd": org.get("latestRoundAmount", 0),
-                "funding_round": "seed",
-                "funding_date": org.get("latestFundingDate", ""),
-                "description": org.get("description", ""),
-                "location": org.get("hq", ""),
-                "source": "tracxn",
-                "contacts": [],  # Tracxn contacts fetched via Apollo by domain
-            })
+def scrape_website_for_emails(url):
+    emails = set()
+    pages_to_try = [url, url.rstrip("/") + "/about", url.rstrip("/") + "/team",
+                    url.rstrip("/") + "/contact", url.rstrip("/") + "/founders"]
+    for page in pages_to_try:
+        try:
+            resp = requests.get(page, headers=HEADERS, timeout=8)
+            found = re.findall(r"[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}", resp.text)
+            for email in found:
+                if not any(x in email.lower() for x in ["noreply", "no-reply", "support",
+                                                          "info@", "hello@", "contact@",
+                                                          "example", "test@"]):
+                    emails.add(email.lower())
+            time.sleep(random.uniform(0.5, 1.5))
+        except:
+            continue
+    return list(emails)
 
-    logger.info(f"Fetched {len(results)} startups with contacts")
+def find_linkedin_url(name, company):
+    results = google_search(f'site:linkedin.com/in "{name}" "{company}"', num=3)
+    for r in results:
+        url = r["url"]
+        if "linkedin.com/in/" in url:
+            match = re.search(r"(https?://(?:www\.)?linkedin\.com/in/[a-zA-Z0-9\-]+)", url)
+            if match:
+                return match.group(1)
+    results = google_search(f'site:linkedin.com/in {name} {company} founder', num=3)
+    for r in results:
+        url = r["url"]
+        if "linkedin.com/in/" in url:
+            match = re.search(r"(https?://(?:www\.)?linkedin\.com/in/[a-zA-Z0-9\-]+)", url)
+            if match:
+                return match.group(1)
+    return ""
+
+def generate_email_from_pattern(first_name, last_name, domain):
+    first = first_name.lower().strip()
+    last = last_name.lower().strip()
+    return f"{first}@{domain}", [
+        f"{first}@{domain}",
+        f"{first}.{last}@{domain}",
+        f"{first[0]}{last}@{domain}",
+        f"{first}{last}@{domain}",
+    ]
+
+def fetch_startups_with_contacts(excel_path=None, max_startups=10):
+    import pandas as pd
+    
+    if not excel_path or not os.path.exists(excel_path):
+        logger.error(f"No Excel file found at {excel_path}")
+        return []
+    
+    df = pd.read_excel(excel_path)
+    name_col = next((c for c in df.columns if "name" in c.lower() and "company" not in c.lower()), None)
+    company_col = next((c for c in df.columns if "company" in c.lower()), None)
+    role_col = next((c for c in df.columns if "role" in c.lower() or "title" in c.lower()), None)
+    summary_col = next((c for c in df.columns if "summary" in c.lower() or "background" in c.lower()), None)
+    
+    if not name_col or not company_col:
+        logger.error("Could not find Name/Company columns")
+        return []
+    
+    results = []
+    processed = 0
+    
+    for _, row in df.iterrows():
+        if processed >= max_startups:
+            break
+        name = str(row.get(name_col, "")).strip()
+        company = str(row.get(company_col, "")).strip()
+        role = str(row.get(role_col, "")).strip() if role_col else ""
+        summary = str(row.get(summary_col, "")).strip() if summary_col else ""
+        
+        if not name or not company or name == "nan":
+            continue
+        
+        first_name = name.split()[0]
+        last_name = name.split()[-1] if len(name.split()) > 1 else ""
+        
+        logger.info(f"Processing {name} at {company}...")
+        
+        domain, website_url = find_company_website(company)
+        time.sleep(random.uniform(1, 2))
+        
+        emails_found = []
+        if website_url:
+            emails_found = scrape_website_for_emails(website_url)
+        
+        linkedin_url = find_linkedin_url(name, company)
+        time.sleep(random.uniform(1, 2))
+        
+        if emails_found:
+            email = emails_found[0]
+            outreach_type = "email"
+        elif domain:
+            email, _ = generate_email_from_pattern(first_name, last_name, domain)
+            outreach_type = "email_generated"
+        else:
+            email = ""
+            outreach_type = "linkedin"
+        
+        contact = {
+            "first_name": first_name,
+            "last_name": last_name,
+            "email": email,
+            "title": role,
+            "linkedin_url": linkedin_url,
+            "outreach_type": outreach_type,
+            "source": "excel_upload"
+        }
+        
+        results.append({
+            "name": company,
+            "website": domain,
+            "description": f"{summary} | Role: {role}",
+            "sector": "AI/Tech",
+            "funding_amount_usd": 500000,
+            "funding_round": "seed",
+            "funding_date": "2024",
+            "location": "",
+            "source": "excel_upload",
+            "contacts": [contact]
+        })
+        processed += 1
+    
+    logger.info(f"Processed {len(results)} founders")
     return results
