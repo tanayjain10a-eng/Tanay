@@ -287,8 +287,10 @@ def upload_excel():
     if file and (file.filename.endswith(".xlsx") or file.filename.endswith(".csv")):
         import os
         os.makedirs("/tmp", exist_ok=True)
-        file.save(os.path.join("/tmp", "founders.xlsx"))
-        flash("File uploaded! Now click Scrape & Draft.", "success")
+        save_path = "/tmp/founders.xlsx"
+        file.save(save_path)
+        size = os.path.getsize(save_path)
+        flash(f"File uploaded ({size} bytes)! Now click Scrape & Draft.", "success")
     else:
         flash("Please upload .xlsx or .csv file.", "danger")
     return redirect("/")
