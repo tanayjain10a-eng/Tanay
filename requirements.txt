@@ -11,3 +11,4 @@ beautifulsoup4
 ddgs
 openpyxl
 gunicorn
+python-dotenv
