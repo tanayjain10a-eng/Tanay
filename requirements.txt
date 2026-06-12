@@ -13,4 +13,4 @@ openpyxl
 gunicorn
 python-dotenv
 pytz
-ddgs
+pandas
