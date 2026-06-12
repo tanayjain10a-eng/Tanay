@@ -309,4 +309,6 @@ def view_linkedin_message(email_id):
                           linkedin_msg=linkedin_msg, linkedin_url=linkedin_url)
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5050, use_reloader=False)
+    import os
+    port = int(os.environ.get("PORT", 5050))
+    app.run(debug=False, host="0.0.0.0", port=port, use_reloader=False)
