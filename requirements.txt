@@ -1,6 +1,6 @@
 flask
-sqlalchemy
 flask-sqlalchemy
+sqlalchemy
 groq
 google-auth
 google-auth-oauthlib
@@ -12,3 +12,5 @@ ddgs
 openpyxl
 gunicorn
 python-dotenv
+pytz
+ddgs
