@@ -12,13 +12,17 @@ logger = logging.getLogger(__name__)
 HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
 
 def ddg_search(query, num=5):
-    try:
-        with DDGS() as ddgs:
-            results = list(ddgs.text(query, max_results=num))
-            return results
-    except Exception as e:
-        logger.error(f"DDG search failed: {e}")
-        return []
+    for attempt in range(3):
+        try:
+            with DDGS() as ddgs:
+                results = list(ddgs.text(query, max_results=num))
+                if results:
+                    return results
+            time.sleep(2 ** attempt)
+        except Exception as e:
+            logger.warning(f"DDG attempt {attempt+1} failed: {e}")
+            time.sleep(2 ** attempt)
+    return []
 
 def find_company_website(company_name):
     results = ddg_search(f"{company_name} startup official website", num=5)
